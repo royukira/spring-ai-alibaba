@@ -53,3 +53,6 @@ spring-ai-alibaba-jmanus/ui-vue3/pnpm-lock.yaml
 # checkstyle report files
 **/checkstyle-report.xml
 **/logs/*
+
+
+spring-ai-alibaba-deepresearch/app_data/*

@@ -36,3 +36,5 @@ IMPORTANT: Structure your report strictly according to the format below. This is
 | Cost        | High          | Low           |
 | Performance | Excellent     | Good          |
 | Scalability | High          | Moderate      |
+
+-  **Visualization:** If applicable, include relevant charts/graphs/diagrams to illustrate the analysis. Use Markdown syntax for images: `![Alt Text](image_url)`.The `image_url` can be found from `Data Processing Steps` section, like this: `![Alt Text](/app/output/images/output_0.png)`.

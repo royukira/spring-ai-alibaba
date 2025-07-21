@@ -22,7 +22,7 @@ import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.LogContainerCmd;
-import com.github.dockerjava.api.model.AccessMode;
+//import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Capability;
 import com.github.dockerjava.api.model.Frame;
@@ -100,6 +100,10 @@ public class PythonReplTool {
 					StringUtils.hasText(requirements) ? requirements.getBytes() : "".getBytes());
 			Files.write(tempDir.resolve("script.py"), code.getBytes());
 
+			logger.info("Temp directory created: " + tempDir.toAbsolutePath());
+			logger.info("Python code to execute:\n" + code);
+			logger.info("Requirements to install:\n" + requirements);
+
 			// Build a docker to run
 			String containName = tempDir.getFileName().toString();
 
@@ -111,7 +115,10 @@ public class PythonReplTool {
 				// If Python code is restricted from network access but requires
 				// third-party dependencies, we need to provision a docker for pip to
 				// install the dependencies.
-				HostConfig hostConfig = createHostConfig(tempDir, volumeName);
+				// HostConfig hostConfig = createHostConfig(tempDir, volumeName);
+				String hostTmpDir = coderProperties.getHostTmpDir() + "/" + tempDir.getFileName().toString();
+				String imageOutputPath = coderProperties.getHostOutputDir() + "/images/";
+				HostConfig hostConfig = createHostConfig(hostTmpDir, imageOutputPath, volumeName);
 
 				CreateContainerResponse container = dockerClient.createContainerCmd(coderProperties.getImageName())
 					.withName(containName)
@@ -130,7 +137,11 @@ public class PythonReplTool {
 			}
 
 			// run python code in docker
-			HostConfig hostConfig = createHostConfig(tempDir, volumeName)
+			// HostConfig hostConfig = createHostConfig(tempDir, volumeName)
+			// .withNetworkMode(coderProperties.isEnableNetwork() ? "bridge" : "none");
+			String hostTmpDir = coderProperties.getHostTmpDir() + "/" + tempDir.getFileName().toString();
+			String imageOutputPath = coderProperties.getHostOutputDir() + "/images/";
+			HostConfig hostConfig = createHostConfig(hostTmpDir, imageOutputPath, volumeName)
 				.withNetworkMode(coderProperties.isEnableNetwork() ? "bridge" : "none");
 
 			CreateContainerResponse container = dockerClient.createContainerCmd(coderProperties.getImageName())
@@ -203,16 +214,12 @@ public class PythonReplTool {
 	/**
 	 * Create container's HostConfig
 	 */
-	private HostConfig createHostConfig(Path tempDir, String volumeName) {
+	private HostConfig createHostConfig(String path, String imageOutputPath, String volumeName) {
 		return newHostConfig().withMemory(coderProperties.getLimitMemory() * 1024L * 1024L)
 			.withCpuCount(coderProperties.getCpuCore())
 			.withCapDrop(Capability.ALL)
 			.withAutoRemove(false)
-			.withBinds(
-					new Bind(tempDir.resolve("script.py").toAbsolutePath().toString(), new Volume("/app/script.py"),
-							AccessMode.ro),
-					new Bind(tempDir.resolve("requirements.txt").toAbsolutePath().toString(),
-							new Volume("/app/requirements.txt"), AccessMode.ro),
+			.withBinds(new Bind(path, new Volume("/app")), new Bind(imageOutputPath, new Volume("/app/output/images/")),
 					new Bind(volumeName, new Volume("/app/dependency")))
 			.withTmpFs(Map.of("/tmp", ""));
 	}

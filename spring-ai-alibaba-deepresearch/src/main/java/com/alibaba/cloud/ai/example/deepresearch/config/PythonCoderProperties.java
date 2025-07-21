@@ -69,6 +69,32 @@ public class PythonCoderProperties {
 	 */
 	String imageName = "python:3-slim";
 
+	/**
+	 * Temporary directory on the host machine for storing files.
+	 */
+	String hostTmpDir = "/tmp";
+
+	/**
+	 * Output directory on the host machine for storing files.
+	 */
+	String hostOutputDir = "/tmp/output";
+
+	public String getHostOutputDir() {
+		return hostOutputDir;
+	}
+
+	public void setHostOutputDir(String hostOutputDir) {
+		this.hostOutputDir = hostOutputDir;
+	}
+
+	public String getHostTmpDir() {
+		return hostTmpDir;
+	}
+
+	public void setHostTmpDir(String hostTmpDir) {
+		this.hostTmpDir = hostTmpDir;
+	}
+
 	public String getDockerHost() {
 		return dockerHost;
 	}

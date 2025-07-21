@@ -70,6 +70,7 @@ Different types of steps have different web search requirements:
    - Raw data collection from existing sources
    - Mathematical calculations and analysis
    - Statistical computations and data processing
+   - Draw statistical charts/graphs/diagrams based on collected data, no more than 3 charts per step
 
 ## Exclusions
 

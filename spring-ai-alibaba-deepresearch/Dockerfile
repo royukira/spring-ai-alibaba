@@ -15,6 +15,9 @@
 # Use Alibaba Dragonwell 17 Ubuntu base image
 FROM dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:17-ubuntu
 
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+RUN echo 'Asia/Shanghai' > /etc/timezone
+
 # Set working directory
 WORKDIR /app
 

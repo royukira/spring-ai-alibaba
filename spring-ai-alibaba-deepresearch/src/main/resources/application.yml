@@ -79,6 +79,12 @@ spring:
         reflection:
           enabled: true
           max-attempts: 1
+        python-coder:
+          containNamePrefix: ${AI_DEEPRESEARCH_PYTHON_CODER_CONTAINER_NAME_PREFIX}
+          enableNetwork: ${AI_DEEPRESEARCH_PYTHON_CODER_ENABLE_NETWORK}
+          hostTmpDir: ${AI_DEEPRESEARCH_PYTHON_CODER_HOST_TMP_DIR}
+          imageName: ${AI_DEEPRESEARCH_PYTHON_CODER_IMAGE_NAME}
+          hostOutputDir: ${AI_DEEPRESEARCH_PYTHON_CODER_HOST_OUTPUT_DIR}
 
 logging:
   level:
