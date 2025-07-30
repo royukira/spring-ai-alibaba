@@ -59,6 +59,11 @@ public class Plan {
 		 */
 		private List<ReflectionResult> reflectionHistory;
 
+		/**
+		 * 执行次数，记录当前步骤的已执行次数
+		 */
+		private Integer executionTimes = 0;
+
 		public boolean isNeedWebSearch() {
 			return needWebSearch;
 		}
@@ -123,6 +128,14 @@ public class Plan {
 		 */
 		public void addReflectionRecord(ReflectionResult record) {
 			getReflectionHistory().add(record);
+		}
+
+		public Integer getExecutionTimes() {
+			return executionTimes;
+		}
+
+		public void setExecutionTimes(Integer executionTimes) {
+			this.executionTimes = executionTimes;
 		}
 
 	}

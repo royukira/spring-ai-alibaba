@@ -29,6 +29,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.util.StringUtils;
+import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -109,7 +110,15 @@ public class ReporterNode implements NodeAction {
 				return Map.of("final_report", finalReport, "thread_id", threadId);
 			})
 			.build(streamResult);
+
 		Map<String, Object> resultMap = new HashMap<>();
+		if (state.value("enable_html_report", false)) {
+			logger.info("HTML report is enabled, setting next node to html_reporter.");
+			resultMap.put("reporter_next_node", "html_reporter");
+		}
+		else {
+			resultMap.put("reporter_next_node", END);
+		}
 		resultMap.put("final_report", generator);
 		resultMap.put("thread_id", threadId);
 		return resultMap;

@@ -57,6 +57,9 @@ public class CoderNode implements NodeAction {
 	// MCP工厂
 	private final McpProviderFactory mcpFactory;
 
+	// 默认最大执行次数
+	private static final Integer DEFAULT_MAX_EXEC_TIMES = 2;
+
 	public CoderNode(ChatClient coderAgent, String executorNodeId, ReflectionProcessor reflectionProcessor,
 			McpProviderFactory mcpFactory) {
 		this.coderAgent = coderAgent;
@@ -74,9 +77,15 @@ public class CoderNode implements NodeAction {
 		Map<String, Object> updated = new HashMap<>();
 
 		Plan.Step assignedStep = findAssignedStep(currentPlan);
+		Plan.Step researchStep = findAssignedStepFromResearcher(currentPlan);
 
 		if (assignedStep == null) {
 			logger.info("No remaining steps to be executed by {}", nodeName);
+			return updated;
+		}
+
+		if (assignedStep.getExecutionTimes() >= DEFAULT_MAX_EXEC_TIMES) {
+			logger.info("Step {} has exceeded the maximum retry times, skipping execution", assignedStep.getTitle());
 			return updated;
 		}
 
@@ -93,10 +102,14 @@ public class CoderNode implements NodeAction {
 
 		// Mark step as processing
 		assignedStep.setExecutionStatus(StateUtil.EXECUTION_STATUS_PROCESSING_PREFIX + nodeName);
+		assignedStep.setExecutionTimes(assignedStep.getExecutionTimes() + 1); // Increment
+																				// execution
+																				// times
 
 		List<Message> messages = new ArrayList<>();
 		// Build task message with reflection history
-		String taskContent = buildTaskMessageWithReflectionHistory(assignedStep, state.value("locale", "en-US"));
+		String taskContent = buildTaskMessageWithReflectionHistory(assignedStep, researchStep,
+				state.value("locale", "zh-CN"));
 		Message taskMessage = new UserMessage(taskContent);
 		messages.add(taskMessage);
 		logger.debug("{} Node message: {}", nodeName, messages);
@@ -152,10 +165,24 @@ public class CoderNode implements NodeAction {
 	}
 
 	/**
+	 * Find steps from researcher node
+	 */
+	private Plan.Step findAssignedStepFromResearcher(Plan currentPlan) {
+		for (Plan.Step step : currentPlan.getSteps()) {
+			if (Plan.StepType.RESEARCH.equals(step.getStepType())) {
+				return step;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Build task message with reflection history
 	 */
-	private String buildTaskMessageWithReflectionHistory(Plan.Step step, String locale) {
+	private String buildTaskMessageWithReflectionHistory(Plan.Step step, Plan.Step reStep, String locale) {
 		StringBuilder content = new StringBuilder();
+
+		String researchData = reStep != null ? reStep.getExecutionRes() : "No research data available";
 
 		// Basic task information
 		content.append("# Task\n\n")
@@ -164,6 +191,9 @@ public class CoderNode implements NodeAction {
 			.append("\n\n")
 			.append("## Description\n\n")
 			.append(step.getDescription())
+			.append("\n\n")
+			.append("## Research Data\n\n")
+			.append(researchData)
 			.append("\n\n")
 			.append("## Locale\n\n")
 			.append(locale)

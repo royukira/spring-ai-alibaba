@@ -53,6 +53,9 @@ public record ChatRequest(
 		 */
 		@JsonProperty(value = "enable_background_investigation",
 				defaultValue = "true") Boolean enableBackgroundInvestigation,
+
+		@JsonProperty(value = "enable_html_report", defaultValue = "true") Boolean enableHtmlReport,
+
 		/**
 		 * MCP 设置
 		 */

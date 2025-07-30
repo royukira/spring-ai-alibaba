@@ -35,7 +35,7 @@ public class ChatRequestProcess {
 	 */
 	public static ChatRequest getDefaultChatRequest(ChatRequest chatRequest, SearchBeanUtil searchBeanUtil) {
 		if (chatRequest == null) {
-			return new ChatRequest("__default__", 1, 3, true, null, true, Collections.emptyMap(), "草莓蛋糕怎么做呀。",
+			return new ChatRequest("__default__", 1, 3, true, null, true, true, Collections.emptyMap(), "草莓蛋糕怎么做呀。",
 					searchBeanUtil.getFirstAvailableSearch().orElse(null), true, 3);
 		}
 		else {
@@ -45,6 +45,7 @@ public class ChatRequestProcess {
 					chatRequest.autoAcceptPlan() == null || chatRequest.autoAcceptPlan(),
 					chatRequest.interruptFeedback(),
 					chatRequest.enableBackgroundInvestigation() == null || chatRequest.enableBackgroundInvestigation(),
+					chatRequest.enableHtmlReport() == null || chatRequest.enableHtmlReport(),
 					chatRequest.mcpSettings() == null ? Collections.emptyMap() : chatRequest.mcpSettings(),
 					StringUtils.hasText(chatRequest.query()) ? chatRequest.query() : "草莓蛋糕怎么做呀",
 					chatRequest.searchEngine() == null ? searchBeanUtil.getFirstAvailableSearch().orElse(null)
@@ -57,6 +58,7 @@ public class ChatRequestProcess {
 	public static void initializeObjectMap(ChatRequest chatRequest, Map<String, Object> objectMap) {
 		objectMap.put("thread_id", chatRequest.threadId());
 		objectMap.put("enable_background_investigation", chatRequest.enableBackgroundInvestigation());
+		objectMap.put("enable_html_report", chatRequest.enableHtmlReport());
 		objectMap.put("auto_accepted_plan", chatRequest.autoAcceptPlan());
 		objectMap.put("query", chatRequest.query());
 		objectMap.put("max_step_num", chatRequest.maxStepNum());

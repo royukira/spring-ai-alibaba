@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.example.deepresearch.node;
 
 import com.alibaba.cloud.ai.example.deepresearch.model.dto.Plan;
+import com.alibaba.cloud.ai.example.deepresearch.util.ReflectionUtil;
 import com.alibaba.cloud.ai.example.deepresearch.util.StateUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -76,6 +77,19 @@ public class ResearchTeamNode implements NodeAction {
 			.allMatch(step -> step.getExecutionStatus() != null
 					&& step.getExecutionStatus().startsWith(StateUtil.EXECUTION_STATUS_COMPLETED_PREFIX));
 	}
+
+    /**
+     * 是否所有执行节点的步骤都为空
+     * @param plan
+     * @return
+     */
+//    public boolean areAllStepsEmpty(Plan plan) {
+//        for (Plan.Step step : plan.getSteps()) {
+//            if (Plan.StepType.RESEARCH.equals(step.getStepType()) && ReflectionUtil.shouldProcessStep(step, nodeName)) {
+//                return step;
+//            }
+//        }
+//    }
 
 	/**
 	 * 检查是否有活跃的反思任务

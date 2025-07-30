@@ -17,25 +17,10 @@
 package com.alibaba.cloud.ai.example.deepresearch.config;
 
 import com.alibaba.cloud.ai.example.deepresearch.config.rag.RagProperties;
-import com.alibaba.cloud.ai.example.deepresearch.dispatcher.CoordinatorDispatcher;
-import com.alibaba.cloud.ai.example.deepresearch.dispatcher.HumanFeedbackDispatcher;
-import com.alibaba.cloud.ai.example.deepresearch.dispatcher.InformationDispatcher;
-import com.alibaba.cloud.ai.example.deepresearch.dispatcher.ResearchTeamDispatcher;
-import com.alibaba.cloud.ai.example.deepresearch.dispatcher.RewriteAndMultiQueryDispatcher;
+import com.alibaba.cloud.ai.example.deepresearch.dispatcher.*;
 import com.alibaba.cloud.ai.example.deepresearch.model.ParallelEnum;
 
-import com.alibaba.cloud.ai.example.deepresearch.node.BackgroundInvestigationNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.CoderNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.CoordinatorNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.HumanFeedbackNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.InformationNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.ParallelExecutorNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.PlannerNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.RagNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.ReporterNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.ResearchTeamNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.ResearcherNode;
-import com.alibaba.cloud.ai.example.deepresearch.node.RewriteAndMultiQueryNode;
+import com.alibaba.cloud.ai.example.deepresearch.node.*;
 import com.alibaba.cloud.ai.example.deepresearch.service.ReportService;
 
 import com.alibaba.cloud.ai.example.deepresearch.serializer.DeepResearchStateSerializer;
@@ -98,6 +83,9 @@ public class DeepResearchConfiguration {
 	@Autowired
 	private ChatClient reflectionAgent;
 
+	@Autowired
+	private ChatClient interactionAgent;
+
 	@Qualifier("chatClientBuilder")
 	@Autowired
 	private ChatClient.Builder rewriteAndMultiQueryAgentBuilder;
@@ -147,6 +135,7 @@ public class DeepResearchConfiguration {
 			keyStrategyHashMap.put("information_next_node", new ReplaceStrategy());
 			keyStrategyHashMap.put("human_next_node", new ReplaceStrategy());
 			keyStrategyHashMap.put("research_team_next_node", new ReplaceStrategy());
+			keyStrategyHashMap.put("reporter_next_node", new ReplaceStrategy());
 			// 用户输入
 			keyStrategyHashMap.put("query", new ReplaceStrategy());
 			keyStrategyHashMap.put("optimize_queries", new ReplaceStrategy());
@@ -157,9 +146,9 @@ public class DeepResearchConfiguration {
 			keyStrategyHashMap.put("max_step_num", new ReplaceStrategy());
 			keyStrategyHashMap.put("mcp_settings", new ReplaceStrategy());
 			keyStrategyHashMap.put("optimize_query_num", new ReplaceStrategy());
-
 			keyStrategyHashMap.put("feed_back", new ReplaceStrategy());
 			keyStrategyHashMap.put("feed_back_content", new ReplaceStrategy());
+			keyStrategyHashMap.put("enable_html_report", new ReplaceStrategy());
 
 			// 节点输出
 			keyStrategyHashMap.put("background_investigation_results", new ReplaceStrategy());
@@ -169,6 +158,7 @@ public class DeepResearchConfiguration {
 			keyStrategyHashMap.put("observations", new ReplaceStrategy());
 			keyStrategyHashMap.put("final_report", new ReplaceStrategy());
 			keyStrategyHashMap.put("planner_content", new ReplaceStrategy());
+			keyStrategyHashMap.put("html_report", new ReplaceStrategy());
 
 			for (int i = 0; i < deepResearchProperties.getParallelNodeCount()
 				.get(ParallelEnum.RESEARCHER.getValue()); i++) {
@@ -185,16 +175,19 @@ public class DeepResearchConfiguration {
 				new DeepResearchStateSerializer(OverAllState::new))
 			.addNode("coordinator", node_async(new CoordinatorNode(coordinatorAgent)))
 			.addNode("rewrite_multi_query", node_async(new RewriteAndMultiQueryNode(rewriteAndMultiQueryAgentBuilder)))
+			// .addNode("background_investigator",
+			// node_async( new BackgroundInvestigationNode(jinaCrawlerService,
+			// infoCheckService, searchFilterService)))
 			.addNode("background_investigator",
-					node_async(
-							new BackgroundInvestigationNode(jinaCrawlerService, infoCheckService, searchFilterService)))
+					node_async(new BackgroundInvestigationNode(null, infoCheckService, searchFilterService)))
 			.addNode("planner", node_async((new PlannerNode(plannerAgent))))
 			.addNode("information", node_async((new InformationNode())))
 			.addNode("human_feedback", node_async(new HumanFeedbackNode()))
 			.addNode("research_team", node_async(new ResearchTeamNode()))
 			.addNode("parallel_executor", node_async(new ParallelExecutorNode(deepResearchProperties)))
 			.addNode("reporter", node_async((new ReporterNode(reporterAgent, reportService))))
-			.addNode("rag_node", node_async(new RagNode(retrievalAugmentationAdvisor, researchAgent)));
+			.addNode("rag_node", node_async(new RagNode(retrievalAugmentationAdvisor, researchAgent)))
+			.addNode("html_reporter", node_async(new InteractiveHtmlNode(interactionAgent, reportService)));
 
 		// 添加并行节点块
 		configureParallelNodes(stateGraph);
@@ -213,7 +206,9 @@ public class DeepResearchConfiguration {
 					Map.of("planner", "planner", "research_team", "research_team", END, END))
 			.addConditionalEdges("research_team", edge_async(new ResearchTeamDispatcher()),
 					Map.of("reporter", "reporter", "parallel_executor", "parallel_executor", END, END))
-			.addEdge("reporter", END);
+			.addConditionalEdges("reporter", edge_async(new InteractiveHtmlDispatcher()),
+					Map.of("html_reporter", "html_reporter", END, END))
+			.addEdge("html_reporter", END);
 
 		GraphRepresentation graphRepresentation = stateGraph.getGraph(GraphRepresentation.Type.PLANTUML,
 				"workflow graph");
