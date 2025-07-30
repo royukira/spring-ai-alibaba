@@ -43,6 +43,8 @@ import java.util.Objects;
 /**
  * @author sixiyida
  * @since 2025/6/14 11:17
+ *
+ * TODO: 1. 有可能一直循环调用搜索工具，导致无限循环
  */
 
 public class ResearcherNode implements NodeAction {
@@ -97,6 +99,7 @@ public class ResearcherNode implements NodeAction {
 
 		// Mark step as processing
 		assignedStep.setExecutionStatus(StateUtil.EXECUTION_STATUS_PROCESSING_PREFIX + nodeName);
+		assignedStep.setExecutionTimes(assignedStep.getExecutionTimes() + 1);
 
 		// Build task messages
 		List<Message> messages = new ArrayList<>();

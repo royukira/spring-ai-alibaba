@@ -84,11 +84,6 @@ public class CoderNode implements NodeAction {
 			return updated;
 		}
 
-		if (assignedStep.getExecutionTimes() >= DEFAULT_MAX_EXEC_TIMES) {
-			logger.info("Step {} has exceeded the maximum retry times, skipping execution", assignedStep.getTitle());
-			return updated;
-		}
-
 		// Handle reflection logic
 		if (reflectionProcessor != null) {
 			ReflectionProcessor.ReflectionHandleResult reflectionResult = reflectionProcessor
@@ -102,9 +97,7 @@ public class CoderNode implements NodeAction {
 
 		// Mark step as processing
 		assignedStep.setExecutionStatus(StateUtil.EXECUTION_STATUS_PROCESSING_PREFIX + nodeName);
-		assignedStep.setExecutionTimes(assignedStep.getExecutionTimes() + 1); // Increment
-																				// execution
-																				// times
+		assignedStep.setExecutionTimes(assignedStep.getExecutionTimes() + 1);
 
 		List<Message> messages = new ArrayList<>();
 		// Build task message with reflection history
