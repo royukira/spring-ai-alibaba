@@ -30,6 +30,7 @@ import com.alibaba.cloud.ai.dashscope.api.DashScopeApi.ChatCompletionRequestPara
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi.FunctionTool;
 import com.alibaba.cloud.ai.dashscope.chat.observation.DashScopeChatModelObservationConvention;
 import com.alibaba.cloud.ai.dashscope.common.DashScopeApiConstants;
+import com.alibaba.cloud.ai.tool.observation.inner.ToolCallReactiveContextHolder;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.contextpropagation.ObservationThreadLocalAccessor;
@@ -139,7 +140,8 @@ public class DashScopeChatModel implements ChatModel {
 			ToolCallingManager toolCallingManager, RetryTemplate retryTemplate,
 			ObservationRegistry observationRegistry) {
 
-		this(dashscopeApi, defaultOptions, toolCallingManager, retryTemplate, observationRegistry, null);
+		this(dashscopeApi, defaultOptions, toolCallingManager, retryTemplate, observationRegistry,
+				new DefaultToolExecutionEligibilityPredicate());
 	}
 
 	public DashScopeChatModel(DashScopeApi dashscopeApi, DashScopeChatOptions defaultOptions,
@@ -158,7 +160,7 @@ public class DashScopeChatModel implements ChatModel {
 		this.toolCallingManager = toolCallingManager;
 		this.retryTemplate = retryTemplate;
 		this.observationRegistry = observationRegistry;
-		this.toolExecutionEligibilityPredicate = new DefaultToolExecutionEligibilityPredicate();
+		this.toolExecutionEligibilityPredicate = toolExecutionEligibilityPredicate;
 	}
 
 	@Override
@@ -260,22 +262,25 @@ public class DashScopeChatModel implements ChatModel {
 			// @formatter:off
 			Flux<ChatResponse> flux = chatResponse.flatMap(response -> {
 					if (toolExecutionEligibilityPredicate.isToolExecutionRequired(prompt.getOptions(), response)) {
-						return Flux.defer(
-								() -> {
-									var toolExecutionResult = this.toolCallingManager.executeToolCalls(prompt, response);
-									if (toolExecutionResult.returnDirect()) {
-										// Return tool execution result directly to the client.
-										return Flux.just(ChatResponse.builder().from(response)
-												.generations(ToolExecutionResult.buildGenerations(toolExecutionResult))
-												.build());
-									} else {
-										// Send the tool execution result back to the model.
-										return this.internalStream(new Prompt(toolExecutionResult.conversationHistory(), prompt.getOptions()),
-												response);
-									}
-								}
-						).subscribeOn(Schedulers.boundedElastic());
-
+						return Flux.deferContextual((ctx) -> {
+							ToolExecutionResult toolExecutionResult;
+							try {
+								ToolCallReactiveContextHolder.setContext(ctx);
+								toolExecutionResult = this.toolCallingManager.executeToolCalls(prompt, response);
+							} finally {
+								ToolCallReactiveContextHolder.clearContext();
+							}
+							if (toolExecutionResult.returnDirect()) {
+								// Return tool execution result directly to the client.
+								return Flux.just(ChatResponse.builder().from(response)
+										.generations(ToolExecutionResult.buildGenerations(toolExecutionResult))
+										.build());
+							} else {
+								// Send the tool execution result back to the model.
+								return this.internalStream(new Prompt(toolExecutionResult.conversationHistory(), prompt.getOptions()),
+										response);
+							}
+						}).subscribeOn(Schedulers.boundedElastic());
 					}
 					else {
 						return Flux.just(response);
@@ -352,9 +357,17 @@ public class DashScopeChatModel implements ChatModel {
 	private static Generation buildGeneration(Choice choice, Map<String, Object> metadata,
 			ChatCompletionRequest request) {
 		List<AssistantMessage.ToolCall> toolCalls = choice.message().toolCalls() == null ? List.of()
-				: choice.message()
-					.toolCalls()
-					.stream()
+				: choice.message().toolCalls().stream().filter(toolCall -> {
+					if (toolCall.function() == null) {
+						logger.warn("Filtering out toolCall with null function: {}", toolCall);
+						return false;
+					}
+					if (toolCall.function().name() == null) {
+						logger.warn("Filtering out toolCall with null function name: {}", toolCall);
+						return false;
+					}
+					return true;
+				})
 					.map(toolCall -> new AssistantMessage.ToolCall(toolCall.id(), "function",
 							toolCall.function().name(), toolCall.function().arguments()))
 					.toList();
@@ -372,6 +385,12 @@ public class DashScopeChatModel implements ChatModel {
 	 * @return the ChatCompletion
 	 */
 	private ChatCompletion chunkToChatCompletion(ChatCompletionChunk chunk) {
+
+		// check chunk
+		if (Objects.isNull(chunk) || Objects.isNull(chunk.output())) {
+			throw new RuntimeException("LLM response chunk is null.");
+		}
+
 		return new ChatCompletion(chunk.requestId(),
 				new ChatCompletionOutput(chunk.output().text(), chunk.output().choices(), chunk.output().searchInfo()),
 				chunk.usage());
@@ -519,35 +538,35 @@ public class DashScopeChatModel implements ChatModel {
 
 		List<MediaContent> contentList = new ArrayList<>();
 		if (format == MessageFormat.VIDEO) {
-			MediaContent mediaContent = new MediaContent(message.getText());
-			contentList.add(mediaContent);
-
 			List<String> mediaList = message.getMedia()
 				.stream()
 				.map(media -> this.fromMediaData(media.getMimeType(), media.getData()))
 				.toList();
 
 			contentList.add(new MediaContent("video", null, null, mediaList));
-		}
-		else if (format == MessageFormat.AUDIO) {
+
 			MediaContent mediaContent = new MediaContent(message.getText());
 			contentList.add(mediaContent);
-
+		}
+		else if (format == MessageFormat.AUDIO) {
 			contentList.addAll(message.getMedia()
 				.stream()
 				.map(media -> new MediaContent("audio", null, null, null,
 						this.fromMediaData(media.getMimeType(), media.getData())))
 				.toList());
-		}
-		else {
+
 			MediaContent mediaContent = new MediaContent(message.getText());
 			contentList.add(mediaContent);
-
+		}
+		else {
 			contentList.addAll(message.getMedia()
 				.stream()
 				.map(media -> new MediaContent("image", null, this.fromMediaData(media.getMimeType(), media.getData()),
 						null))
 				.toList());
+
+			MediaContent mediaContent = new MediaContent(message.getText());
+			contentList.add(mediaContent);
 		}
 
 		return contentList;
@@ -590,7 +609,7 @@ public class DashScopeChatModel implements ChatModel {
 				options.getTemperature(), options.getStop(), options.getEnableSearch(), options.getResponseFormat(),
 				incrementalOutput, options.getTools(), options.getToolChoice(), stream,
 				options.getVlHighResolutionImages(), options.getEnableThinking(), options.getSearchOptions(),
-				options.getParallelToolCalls(), null, null, null, null, null, null);
+				options.getParallelToolCalls(), options.getThinkingBudget(), null, null, null, null, null);
 	}
 
 	/**
